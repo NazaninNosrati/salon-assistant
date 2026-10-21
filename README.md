@@ -45,35 +45,38 @@ claim something the system did not confirm.
 
 Each session stores `customer` (from the app, never the model), `messages`
 (history without the system prompt), `pending` (one proposal awaiting
-confirmation), `turn`, `seq`, and `seen_ids`.
+confirmation), `turn`, `seq`, `seen_ids`, `error_count`, `evidence`
+(set of HH:MM / €X / B-n the model has seen), and `write_success`.
 
 ### Key methods
 
 | Method | What it does |
 |---|---|
-| `handle` | Adds the user message, reads and clears `pending`, executes it if the customer said yes, then calls the model loop. |
+| `handle` | Adds the user message, reads and clears `pending`, executes it if the customer said yes, then runs the model loop. |
 | `_system_prompt` | Builds the system prompt with `Now: YYYY-MM-DD HH:MM (Weekday)` from the injected clock. |
 | `_build_messages` | Trims history to ≤ 24 messages, keeping whole turns so no `tool` is orphaned. |
-| `_run_model` | Loops up to 6 model calls: executes tool calls or returns the final reply; falls back safely otherwise. |
+| `_run_model` | Loops up to 6 model calls: executes tool calls, or returns the final reply after `_check_grounding`, or falls back safely. |
 | `_valid_batch` | Rejects the whole tool batch if any entry is malformed, over the limit, or reuses an id. |
 | `_run_tool_calls` | Emits one assistant message with all tool calls, then one `tool` message per result. |
-| `_record` / `_audit` | Write the tool observation and a redacted audit event (8 keys). |
-| `_run_one` | Validates tool name, JSON, dict shape, and schema before dispatch. |
+| `_record` / `_audit` | Write the tool observation, audit event, and extract evidence. |
+| `_run_one` | Validates tool name, JSON, dict shape, and schema before dispatch; retries reads once on timeout. |
 | `_t_list_services` / `_t_find_slots` / `_t_get_my_bookings` | Read tools; identity comes from the session. |
-| `_t_book` | Six pre-checks before creating a `pending` proposal — never books directly. |
+| `_t_book` / `_t_cancel` / `_t_reschedule` | Pre-check salon rules before creating a `pending` proposal — never write directly. |
 | `_alternatives` | Ranks free slots by distance from the requested time, returns up to 3. |
-| `_execute_pending` | Runs the confirmed action with a deterministic `request_key`, then records the result. |
+| `_execute_pending` | Runs the confirmed action with a deterministic `request_key`; handles `SlotTaken`, `BackendTimeout` (with `find_by_key`), and `BackendError`. |
+| `_t_handoff` | Creates a support ticket with redacted summary. |
+| `_extract_evidence` / `_check_grounding` | Track and validate HH:MM / €X / B-n against what the model actually saw. |
 
 ### Rules implemented
 
 - **R1 (identity):** `st['customer']` from `open_session`.
 - **R2 (confirmation):** `handle` + `pending` + `interpret_reply`.
 - **R3 (execution protocol):** synthetic assistant + tool messages in `_execute_pending`.
-- **R4 (pre-check):** six checks in `_t_book` before any proposal.
+- **R4 (pre-check):** `_t_book`, `_t_cancel`, `_t_reschedule` before any proposal.
 - **R5 (idempotency):** `request_key` from `(session, turn, seq)`.
-- **R6 (errors):** partial — retry and `find_by_key` still to come.
+- **R6 (errors):** retry on read, `find_by_key` on write timeout, ticket after 2 failures.
 - **R7 (limits):** `_valid_batch` + `_run_model`.
-- **R8 (grounding):** `_check_grounding` still to come.
+- **R8 (grounding):** `_extract_evidence` + `_check_grounding` + `write_success`.
 - **R9 (history):** `_build_messages` + `_system_prompt`.
 - **R10 (audit):** `_audit` with 8 keys, `_redact`, 80-char preview.
 - **R12 (honesty):** `SAFE_FALLBACK` in `_run_model`.
