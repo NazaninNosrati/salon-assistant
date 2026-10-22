@@ -19,9 +19,9 @@ any booking change is executed.
 - [x] `TOOL_SCHEMAS` — seven allowed tools in OpenAI format
 - [x] Helper functions: `_redact`, `_euro`, `_validate_args`, `_result`
 - [x] `SalonAssistant` — main controller class
-- [ ] 22 public scenarios passing
+- [x] 22 public scenarios passing
 - [ ] Live-model experiments (Section C)
-- [ ] Personal test scenarios (Section B)
+- [x] Personal test scenarios (Section B)
 - [ ] Final report (Section D)
 
 ## Project layout
@@ -80,3 +80,22 @@ confirmation), `turn`, `seq`, `seen_ids`, `error_count`, `evidence`
 - **R9 (history):** `_build_messages` + `_system_prompt`.
 - **R10 (audit):** `_audit` with 8 keys, `_redact`, 80-char preview.
 - **R12 (honesty):** `SAFE_FALLBACK` in `_run_model`.
+
+## Personal stress scenarios (Section B)
+
+`MY_SCENARIOS` contains 11 stress scenarios. Each one targets a specific
+bug and passes with the current implementation.
+
+| ID | What it catches |
+|---|---|
+| M01 | A success claim after two write timeouts is replaced by `SAFE_FALLBACK`. |
+| M02 | A read timeout is retried once with the same `request_key` — exactly one booking. |
+| M03 | A committed write whose reply is lost reports `unknown_outcome`, not success. |
+| M04 | A cancellation fee that changes while the customer decides is not applied. |
+| M05 | The model proposing the same booking again is blocked with `slot_unavailable`. |
+| M06 | Only the last confirmed proposal is booked (pending lives one turn). |
+| M07 | A reply with a time the tools never returned is replaced by `SAFE_FALLBACK`. |
+| M08 | Two handoff calls produce one ticket, redacted and ≤ 300 chars. |
+| M09 | A tool-call id reused from an earlier turn rejects the whole batch. |
+| M10 | A model that never stops calling tools hits the 6-call / 8-tool limits. |
+| M11 | Audit has exactly 8 keys, no email/phone, dates kept, preview ≤ 80 chars. |
