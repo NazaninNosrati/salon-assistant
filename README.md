@@ -20,9 +20,9 @@ any booking change is executed.
 - [x] Helper functions: `_redact`, `_euro`, `_validate_args`, `_result`
 - [x] `SalonAssistant` — main controller class
 - [x] 22 public scenarios passing
-- [ ] Live-model experiments (Section C)
+- [x] Live-model experiments (Section C)
 - [x] Personal test scenarios (Section B)
-- [ ] Final report (Section D)
+- [x] Final report (Section D)
 
 ## Project layout
 
